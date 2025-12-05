@@ -2,11 +2,29 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Icon from "@/components/ui/icon";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+
+interface Moment {
+  id: number;
+  title: string;
+  date: string;
+  description: string;
+  image: string;
+}
 
 const Index = () => {
   const [activeSection, setActiveSection] = useState<"home" | "moments">("home");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newMoment, setNewMoment] = useState({ title: "", date: "", description: "" });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const moments = [
+  const [moments, setMoments] = useState<Moment[]>([
     {
       id: 1,
       title: "Первая встреча",
@@ -36,6 +54,49 @@ const Index = () => {
     delay: `${Math.random() * 3}s`,
     duration: `${3 + Math.random() * 2}s`
   }));
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddMoment = () => {
+    if (!newMoment.title || !newMoment.date || !newMoment.description) {
+      toast({
+        title: "Заполните все поля",
+        description: "Пожалуйста, введите название, дату и описание момента",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newId = moments.length > 0 ? Math.max(...moments.map(m => m.id)) + 1 : 1;
+    const newMomentData: Moment = {
+      id: newId,
+      title: newMoment.title,
+      date: newMoment.date,
+      description: newMoment.description,
+      image: imagePreview || "https://cdn.poehali.dev/projects/e40605ee-62aa-45c2-8830-c9a2a736e37a/files/101a60e7-03ec-4926-ac6e-b5ae9fb1bdaf.jpg"
+    };
+
+    setMoments([...moments, newMomentData]);
+    setNewMoment({ title: "", date: "", description: "" });
+    setImageFile(null);
+    setImagePreview(null);
+    setIsDialogOpen(false);
+    
+    toast({
+      title: "Момент добавлен! 💕",
+      description: "Ваше воспоминание сохранено"
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-romantic-pink via-background to-romantic-purple overflow-hidden relative">
@@ -130,9 +191,96 @@ const Index = () => {
               <h2 className="text-6xl font-bold text-center mb-4 text-primary">
                 Наши Моменты
               </h2>
-              <p className="text-center text-xl text-muted-foreground mb-16 max-w-2xl mx-auto">
+              <p className="text-center text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
                 Каждое мгновение с тобой — это драгоценный камень в короне наших воспоминаний
               </p>
+
+              <div className="flex justify-center mb-12">
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="lg" className="hover-scale">
+                      <Icon name="Plus" className="mr-2" size={20} />
+                      Добавить момент
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px] bg-white/95 backdrop-blur-md">
+                    <DialogHeader>
+                      <DialogTitle className="text-3xl font-cormorant text-primary flex items-center gap-2">
+                        <Icon name="Sparkles" size={28} className="text-romantic-rose" />
+                        Новый момент
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-6 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="title" className="text-base font-medium">
+                          Название момента
+                        </Label>
+                        <Input
+                          id="title"
+                          placeholder="Например: Первое свидание"
+                          value={newMoment.title}
+                          onChange={(e) => setNewMoment({ ...newMoment, title: e.target.value })}
+                          className="border-romantic-purple/30"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="date" className="text-base font-medium">
+                          Дата
+                        </Label>
+                        <Input
+                          id="date"
+                          type="date"
+                          value={newMoment.date}
+                          onChange={(e) => setNewMoment({ ...newMoment, date: e.target.value })}
+                          className="border-romantic-purple/30"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="description" className="text-base font-medium">
+                          Описание
+                        </Label>
+                        <Textarea
+                          id="description"
+                          placeholder="Опишите этот особенный момент..."
+                          value={newMoment.description}
+                          onChange={(e) => setNewMoment({ ...newMoment, description: e.target.value })}
+                          className="border-romantic-purple/30 min-h-[100px]"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="image" className="text-base font-medium">
+                          Фотография
+                        </Label>
+                        <div className="flex flex-col gap-4">
+                          <Input
+                            id="image"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="border-romantic-purple/30"
+                          />
+                          {imagePreview && (
+                            <div className="relative w-full h-48 rounded-lg overflow-hidden border-2 border-romantic-purple/30">
+                              <img
+                                src={imagePreview}
+                                alt="Preview"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleAddMoment}
+                        className="w-full text-lg py-6 hover-scale"
+                      >
+                        <Icon name="Heart" className="mr-2" size={20} />
+                        Сохранить момент
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {moments.map((moment, index) => (
