@@ -7,6 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Moment {
   id: number;
@@ -18,8 +28,12 @@ interface Moment {
 
 const Index = () => {
   const [activeSection, setActiveSection] = useState<"home" | "moments">("home");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newMoment, setNewMoment] = useState({ title: "", date: "", description: "" });
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
+  const [momentToDelete, setMomentToDelete] = useState<number | null>(null);
+  const [formData, setFormData] = useState({ title: "", date: "", description: "" });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const { toast } = useToast();
@@ -28,25 +42,25 @@ const Index = () => {
     {
       id: 1,
       title: "Первая встреча",
-      date: "14 февраля 2023",
+      date: "2023-02-14",
       description: "День, когда наши сердца встретились...",
       image: "https://cdn.poehali.dev/projects/e40605ee-62aa-45c2-8830-c9a2a736e37a/files/101a60e7-03ec-4926-ac6e-b5ae9fb1bdaf.jpg"
     },
     {
       id: 2,
       title: "Наше первое путешествие",
-      date: "15 июня 2023",
+      date: "2023-06-15",
       description: "Незабываемые моменты вместе в новом городе",
       image: "https://cdn.poehali.dev/projects/e40605ee-62aa-45c2-8830-c9a2a736e37a/files/75318097-aeb7-4126-9eeb-5083de9a3635.jpg"
     },
     {
       id: 3,
       title: "Уютный вечер вдвоем",
-      date: "22 августа 2023",
+      date: "2023-08-22",
       description: "Простые моменты, которые создают большие воспоминания",
       image: "https://cdn.poehali.dev/projects/e40605ee-62aa-45c2-8830-c9a2a736e37a/files/d007a8e8-6639-4221-a3f6-aeaa942f2867.jpg"
     }
-  ];
+  ]);
 
   const floatingHearts = Array.from({ length: 8 }, (_, i) => ({
     id: i,
@@ -54,6 +68,11 @@ const Index = () => {
     delay: `${Math.random() * 3}s`,
     duration: `${3 + Math.random() * 2}s`
   }));
+
+  const formatDateForDisplay = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -67,8 +86,15 @@ const Index = () => {
     }
   };
 
+  const resetForm = () => {
+    setFormData({ title: "", date: "", description: "" });
+    setImageFile(null);
+    setImagePreview(null);
+    setSelectedMoment(null);
+  };
+
   const handleAddMoment = () => {
-    if (!newMoment.title || !newMoment.date || !newMoment.description) {
+    if (!formData.title || !formData.date || !formData.description) {
       toast({
         title: "Заполните все поля",
         description: "Пожалуйста, введите название, дату и описание момента",
@@ -80,23 +106,155 @@ const Index = () => {
     const newId = moments.length > 0 ? Math.max(...moments.map(m => m.id)) + 1 : 1;
     const newMomentData: Moment = {
       id: newId,
-      title: newMoment.title,
-      date: newMoment.date,
-      description: newMoment.description,
+      title: formData.title,
+      date: formData.date,
+      description: formData.description,
       image: imagePreview || "https://cdn.poehali.dev/projects/e40605ee-62aa-45c2-8830-c9a2a736e37a/files/101a60e7-03ec-4926-ac6e-b5ae9fb1bdaf.jpg"
     };
 
     setMoments([...moments, newMomentData]);
-    setNewMoment({ title: "", date: "", description: "" });
-    setImageFile(null);
-    setImagePreview(null);
-    setIsDialogOpen(false);
+    resetForm();
+    setIsAddDialogOpen(false);
     
     toast({
       title: "Момент добавлен! 💕",
       description: "Ваше воспоминание сохранено"
     });
   };
+
+  const openEditDialog = (moment: Moment) => {
+    setSelectedMoment(moment);
+    setFormData({
+      title: moment.title,
+      date: moment.date,
+      description: moment.description
+    });
+    setImagePreview(moment.image);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditMoment = () => {
+    if (!selectedMoment) return;
+
+    if (!formData.title || !formData.date || !formData.description) {
+      toast({
+        title: "Заполните все поля",
+        description: "Пожалуйста, введите название, дату и описание момента",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const updatedMoments = moments.map(m => 
+      m.id === selectedMoment.id 
+        ? { 
+            ...m, 
+            title: formData.title, 
+            date: formData.date, 
+            description: formData.description,
+            image: imagePreview || m.image
+          }
+        : m
+    );
+
+    setMoments(updatedMoments);
+    resetForm();
+    setIsEditDialogOpen(false);
+
+    toast({
+      title: "Момент обновлен! ✨",
+      description: "Изменения сохранены"
+    });
+  };
+
+  const openDeleteDialog = (momentId: number) => {
+    setMomentToDelete(momentId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteMoment = () => {
+    if (momentToDelete === null) return;
+
+    setMoments(moments.filter(m => m.id !== momentToDelete));
+    setMomentToDelete(null);
+    setIsDeleteDialogOpen(false);
+
+    toast({
+      title: "Момент удален",
+      description: "Воспоминание удалено из коллекции"
+    });
+  };
+
+  const MomentForm = ({ onSubmit, submitText }: { onSubmit: () => void; submitText: string }) => (
+    <div className="space-y-6 py-4">
+      <div className="space-y-2">
+        <Label htmlFor="title" className="text-base font-medium">
+          Название момента
+        </Label>
+        <Input
+          id="title"
+          placeholder="Например: Первое свидание"
+          value={formData.title}
+          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+          className="border-romantic-purple/30"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="date" className="text-base font-medium">
+          Дата
+        </Label>
+        <Input
+          id="date"
+          type="date"
+          value={formData.date}
+          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+          className="border-romantic-purple/30"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="description" className="text-base font-medium">
+          Описание
+        </Label>
+        <Textarea
+          id="description"
+          placeholder="Опишите этот особенный момент..."
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          className="border-romantic-purple/30 min-h-[100px]"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="image" className="text-base font-medium">
+          Фотография
+        </Label>
+        <div className="flex flex-col gap-4">
+          <Input
+            id="image"
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="border-romantic-purple/30"
+          />
+          {imagePreview && (
+            <div className="relative w-full h-48 rounded-lg overflow-hidden border-2 border-romantic-purple/30">
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+      <Button
+        onClick={onSubmit}
+        className="w-full text-lg py-6 hover-scale"
+      >
+        <Icon name="Heart" className="mr-2" size={20} />
+        {submitText}
+      </Button>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-romantic-pink via-background to-romantic-purple overflow-hidden relative">
@@ -196,7 +354,10 @@ const Index = () => {
               </p>
 
               <div className="flex justify-center mb-12">
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+                  setIsAddDialogOpen(open);
+                  if (!open) resetForm();
+                }}>
                   <DialogTrigger asChild>
                     <Button size="lg" className="hover-scale">
                       <Icon name="Plus" className="mr-2" size={20} />
@@ -205,79 +366,12 @@ const Index = () => {
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[500px] bg-white/95 backdrop-blur-md">
                     <DialogHeader>
-                      <DialogTitle className="text-3xl font-cormorant text-primary flex items-center gap-2">
+                      <DialogTitle className="text-3xl text-primary flex items-center gap-2">
                         <Icon name="Sparkles" size={28} className="text-romantic-rose" />
                         Новый момент
                       </DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-6 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="title" className="text-base font-medium">
-                          Название момента
-                        </Label>
-                        <Input
-                          id="title"
-                          placeholder="Например: Первое свидание"
-                          value={newMoment.title}
-                          onChange={(e) => setNewMoment({ ...newMoment, title: e.target.value })}
-                          className="border-romantic-purple/30"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="date" className="text-base font-medium">
-                          Дата
-                        </Label>
-                        <Input
-                          id="date"
-                          type="date"
-                          value={newMoment.date}
-                          onChange={(e) => setNewMoment({ ...newMoment, date: e.target.value })}
-                          className="border-romantic-purple/30"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="description" className="text-base font-medium">
-                          Описание
-                        </Label>
-                        <Textarea
-                          id="description"
-                          placeholder="Опишите этот особенный момент..."
-                          value={newMoment.description}
-                          onChange={(e) => setNewMoment({ ...newMoment, description: e.target.value })}
-                          className="border-romantic-purple/30 min-h-[100px]"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="image" className="text-base font-medium">
-                          Фотография
-                        </Label>
-                        <div className="flex flex-col gap-4">
-                          <Input
-                            id="image"
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageChange}
-                            className="border-romantic-purple/30"
-                          />
-                          {imagePreview && (
-                            <div className="relative w-full h-48 rounded-lg overflow-hidden border-2 border-romantic-purple/30">
-                              <img
-                                src={imagePreview}
-                                alt="Preview"
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        onClick={handleAddMoment}
-                        className="w-full text-lg py-6 hover-scale"
-                      >
-                        <Icon name="Heart" className="mr-2" size={20} />
-                        Сохранить момент
-                      </Button>
-                    </div>
+                    <MomentForm onSubmit={handleAddMoment} submitText="Сохранить момент" />
                   </DialogContent>
                 </Dialog>
               </div>
@@ -286,17 +380,35 @@ const Index = () => {
                 {moments.map((moment, index) => (
                   <Card
                     key={moment.id}
-                    className="overflow-hidden hover-scale bg-white/70 backdrop-blur-sm border-romantic-purple/20 animate-scale-in"
+                    className="overflow-hidden hover-scale bg-white/70 backdrop-blur-sm border-romantic-purple/20 animate-scale-in relative group"
                     style={{ animationDelay: `${index * 0.1}s` }}
                   >
+                    <div className="absolute top-4 right-4 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="bg-white/90 hover:bg-white"
+                        onClick={() => openEditDialog(moment)}
+                      >
+                        <Icon name="Pencil" size={16} />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="bg-white/90 hover:bg-white text-destructive"
+                        onClick={() => openDeleteDialog(moment.id)}
+                      >
+                        <Icon name="Trash2" size={16} />
+                      </Button>
+                    </div>
                     <div className="relative h-64 overflow-hidden">
                       <img
                         src={moment.image}
                         alt={moment.title}
                         className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
                       />
-                      <div className="absolute top-4 right-4 bg-romantic-rose/90 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium">
-                        {moment.date}
+                      <div className="absolute bottom-4 right-4 bg-romantic-rose/90 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium">
+                        {formatDateForDisplay(moment.date)}
                       </div>
                     </div>
                     <div className="p-6">
@@ -323,6 +435,41 @@ const Index = () => {
           </div>
         )}
       </main>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        setIsEditDialogOpen(open);
+        if (!open) resetForm();
+      }}>
+        <DialogContent className="sm:max-w-[500px] bg-white/95 backdrop-blur-md">
+          <DialogHeader>
+            <DialogTitle className="text-3xl text-primary flex items-center gap-2">
+              <Icon name="Pencil" size={28} className="text-romantic-rose" />
+              Редактировать момент
+            </DialogTitle>
+          </DialogHeader>
+          <MomentForm onSubmit={handleEditMoment} submitText="Сохранить изменения" />
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="bg-white/95 backdrop-blur-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl flex items-center gap-2">
+              <Icon name="AlertTriangle" size={24} className="text-destructive" />
+              Удалить момент?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base">
+              Вы уверены, что хотите удалить это воспоминание? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteMoment} className="bg-destructive hover:bg-destructive/90">
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <footer className="bg-white/50 backdrop-blur-md border-t border-romantic-purple/20 py-8 mt-16">
         <div className="container mx-auto px-4 text-center">
