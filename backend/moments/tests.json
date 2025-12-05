@@ -1,0 +1,37 @@
+{
+  "tests": [
+    {
+      "name": "Get all moments",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "0": {
+          "id": "number",
+          "title": "string",
+          "date": "string",
+          "description": "string",
+          "image": "string"
+        }
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Create new moment",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "title": "Тестовый момент",
+        "date": "2024-01-01",
+        "description": "Описание тестового момента",
+        "image": "https://example.com/test.jpg"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "id": "number",
+        "title": "Тестовый момент"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

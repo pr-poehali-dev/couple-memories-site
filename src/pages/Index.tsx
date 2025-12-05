@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Icon from "@/components/ui/icon";
@@ -38,29 +38,33 @@ const Index = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const [moments, setMoments] = useState<Moment[]>([
-    {
-      id: 1,
-      title: "Первая встреча",
-      date: "2023-02-14",
-      description: "День, когда наши сердца встретились...",
-      image: "https://cdn.poehali.dev/projects/e40605ee-62aa-45c2-8830-c9a2a736e37a/files/101a60e7-03ec-4926-ac6e-b5ae9fb1bdaf.jpg"
-    },
-    {
-      id: 2,
-      title: "Наше первое путешествие",
-      date: "2023-06-15",
-      description: "Незабываемые моменты вместе в новом городе",
-      image: "https://cdn.poehali.dev/projects/e40605ee-62aa-45c2-8830-c9a2a736e37a/files/75318097-aeb7-4126-9eeb-5083de9a3635.jpg"
-    },
-    {
-      id: 3,
-      title: "Уютный вечер вдвоем",
-      date: "2023-08-22",
-      description: "Простые моменты, которые создают большие воспоминания",
-      image: "https://cdn.poehali.dev/projects/e40605ee-62aa-45c2-8830-c9a2a736e37a/files/d007a8e8-6639-4221-a3f6-aeaa942f2867.jpg"
+  const [moments, setMoments] = useState<Moment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const API_URL = 'https://functions.poehali.dev/db63cbe7-26c1-4dcf-843b-dd00bf48934c';
+
+  useEffect(() => {
+    loadMoments();
+  }, []);
+
+  const loadMoments = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(API_URL);
+      if (response.ok) {
+        const data = await response.json();
+        setMoments(data);
+      }
+    } catch (error) {
+      toast({
+        title: "Ошибка загрузки",
+        description: "Не удалось загрузить моменты",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  };
 
   const floatingHearts = Array.from({ length: 8 }, (_, i) => ({
     id: i,
@@ -93,7 +97,7 @@ const Index = () => {
     setSelectedMoment(null);
   };
 
-  const handleAddMoment = () => {
+  const handleAddMoment = async () => {
     if (!formData.title || !formData.date || !formData.description) {
       toast({
         title: "Заполните все поля",
@@ -103,23 +107,39 @@ const Index = () => {
       return;
     }
 
-    const newId = moments.length > 0 ? Math.max(...moments.map(m => m.id)) + 1 : 1;
-    const newMomentData: Moment = {
-      id: newId,
-      title: formData.title,
-      date: formData.date,
-      description: formData.description,
-      image: imagePreview || "https://cdn.poehali.dev/projects/e40605ee-62aa-45c2-8830-c9a2a736e37a/files/101a60e7-03ec-4926-ac6e-b5ae9fb1bdaf.jpg"
-    };
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          date: formData.date,
+          description: formData.description,
+          image: imagePreview || "https://cdn.poehali.dev/projects/e40605ee-62aa-45c2-8830-c9a2a736e37a/files/101a60e7-03ec-4926-ac6e-b5ae9fb1bdaf.jpg"
+        })
+      });
 
-    setMoments([...moments, newMomentData]);
-    resetForm();
-    setIsAddDialogOpen(false);
-    
-    toast({
-      title: "Момент добавлен! 💕",
-      description: "Ваше воспоминание сохранено"
-    });
+      if (response.ok) {
+        await loadMoments();
+        resetForm();
+        setIsAddDialogOpen(false);
+        
+        toast({
+          title: "Момент добавлен! 💕",
+          description: "Ваше воспоминание сохранено"
+        });
+      } else {
+        throw new Error('Failed to add moment');
+      }
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось добавить момент",
+        variant: "destructive"
+      });
+    }
   };
 
   const openEditDialog = (moment: Moment) => {
@@ -133,7 +153,7 @@ const Index = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleEditMoment = () => {
+  const handleEditMoment = async () => {
     if (!selectedMoment) return;
 
     if (!formData.title || !formData.date || !formData.description) {
@@ -145,26 +165,39 @@ const Index = () => {
       return;
     }
 
-    const updatedMoments = moments.map(m => 
-      m.id === selectedMoment.id 
-        ? { 
-            ...m, 
-            title: formData.title, 
-            date: formData.date, 
-            description: formData.description,
-            image: imagePreview || m.image
-          }
-        : m
-    );
+    try {
+      const response = await fetch(`${API_URL}/${selectedMoment.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          date: formData.date,
+          description: formData.description,
+          image: imagePreview || selectedMoment.image
+        })
+      });
 
-    setMoments(updatedMoments);
-    resetForm();
-    setIsEditDialogOpen(false);
+      if (response.ok) {
+        await loadMoments();
+        resetForm();
+        setIsEditDialogOpen(false);
 
-    toast({
-      title: "Момент обновлен! ✨",
-      description: "Изменения сохранены"
-    });
+        toast({
+          title: "Момент обновлен! ✨",
+          description: "Изменения сохранены"
+        });
+      } else {
+        throw new Error('Failed to update moment');
+      }
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить момент",
+        variant: "destructive"
+      });
+    }
   };
 
   const openDeleteDialog = (momentId: number) => {
@@ -172,17 +205,33 @@ const Index = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleDeleteMoment = () => {
+  const handleDeleteMoment = async () => {
     if (momentToDelete === null) return;
 
-    setMoments(moments.filter(m => m.id !== momentToDelete));
-    setMomentToDelete(null);
-    setIsDeleteDialogOpen(false);
+    try {
+      const response = await fetch(`${API_URL}/${momentToDelete}`, {
+        method: 'DELETE'
+      });
 
-    toast({
-      title: "Момент удален",
-      description: "Воспоминание удалено из коллекции"
-    });
+      if (response.ok) {
+        await loadMoments();
+        setMomentToDelete(null);
+        setIsDeleteDialogOpen(false);
+
+        toast({
+          title: "Момент удален",
+          description: "Воспоминание удалено из коллекции"
+        });
+      } else {
+        throw new Error('Failed to delete moment');
+      }
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось удалить момент",
+        variant: "destructive"
+      });
+    }
   };
 
   const MomentForm = ({ onSubmit, submitText }: { onSubmit: () => void; submitText: string }) => (
@@ -376,8 +425,22 @@ const Index = () => {
                 </Dialog>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {moments.map((moment, index) => (
+              {isLoading ? (
+                <div className="flex justify-center items-center py-16">
+                  <div className="text-center space-y-4">
+                    <div className="animate-spin text-6xl">💕</div>
+                    <p className="text-xl text-muted-foreground">Загружаем ваши моменты...</p>
+                  </div>
+                </div>
+              ) : moments.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="text-6xl mb-4">💝</div>
+                  <p className="text-xl text-muted-foreground">Пока нет добавленных моментов</p>
+                  <p className="text-muted-foreground mt-2">Нажмите "Добавить момент" чтобы создать первое воспоминание</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {moments.map((moment, index) => (
                   <Card
                     key={moment.id}
                     className="overflow-hidden hover-scale bg-white/70 backdrop-blur-sm border-romantic-purple/20 animate-scale-in relative group"
@@ -421,8 +484,9 @@ const Index = () => {
                       </p>
                     </div>
                   </Card>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
               <div className="mt-16 text-center">
                 <Card className="inline-block p-8 bg-gradient-to-r from-romantic-pink to-romantic-purple border-none">
